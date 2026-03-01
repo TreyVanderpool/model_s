@@ -25,8 +25,8 @@ var (
   Log               ol.ILogger
   DB                *odb.DB
   SQLs              osql.SQLs
-  gsStartingDate    *string
-  giNegDays         *int = flag.Int( "nd", 3, "number of negative days to look at" )
+  gsStartingDate    *string = flag.String( "sd", time.Now().Format( ou.YYYY_MM_DD ), "starting date" )
+  // giNegDays         *int = flag.Int( "nd", 3, "number of negative days to look at" )
   gfPctChgParm      *float64 = flag.Float64( "pc", 2, "percent change to check" )
   gfLossPct         *float64 = flag.Float64( "lp", 2.0, "loss percent" )
   giPlaysPerDay     *int = flag.Int( "ppd", 10, "plays per day" )
@@ -45,25 +45,36 @@ type _hit struct {
 
 func main() {
   lsDBName := flag.String( "db", "stocks_test", "database name" )
-  gsStartingDate = flag.String( "sd", time.Now().Format( ou.YYYY_MM_DD ), "starting date" )
+  // gsStartingDate = flag.String( "sd", time.Now().Format( ou.YYYY_MM_DD ), "starting date" )
   lsSymbol := flag.String( "s", "", "single symbol to look at" )
   lsSymbolListName := flag.String( "sln", "top_list_20241205", "symbol list name" )
   lsExcludeSymbols := flag.String( "exclude", "model_r_exclude", "exclude symbol list" )
   lsLvl := flag.String( "lvl", "info", "log level" )
   lsExitPercents := flag.String( "ep", "2.0", "exit percent")
+  lsNegDays := flag.String( "nd", "3", "number of negative days to look at" )
   flag.Parse()
 
   if *gfPctChgParm > 0 { *gfPctChgParm *= -1 }
   if *gfLossPct > 0 { *gfLossPct *= -1 }
   gfExitPercents = make( []float64, *giPlaysPerDay )
   lsValues := strings.Split( *lsExitPercents, "," )
+  liNegDays := make( []int, 0 )
 
+  // Go through all the exit percents and set them up
+  // based on the number of plays per day.
   for i, lV := range lsValues {
     lfValue, _ := strconv.ParseFloat( strings.Trim( lV, " " ), 64 )
     gfExitPercents[i] = ou.TTF( lfValue > 0, lfValue * -1, lfValue ).(float64)
   }
   for i := len( lsValues ); i < len( gfExitPercents ); i++ {
     gfExitPercents[i] = gfExitPercents[len(lsValues)-1]
+  }
+
+  lsValues = strings.Split( *lsNegDays, "," )
+  
+  for _, lV := range lsValues {
+    liNbr, _ := strconv.Atoi( lV )
+    liNegDays = append( liNegDays, liNbr )
   }
 
   Log = oinit.Init( oinit.INIT_LOG, *lsLvl ).(ol.ILogger)
@@ -78,7 +89,7 @@ func main() {
 
   // Log.Info( "Symbols to process: %d", len( lsSymList ) )
 
-  _LoadProcessingMap( lsSymList )
+  _LoadProcessingMap( lsSymList, liNegDays )
   // _EvaluateDatesOpenDown()
   _EvaluateDatesOpenDownAndDownLP()
 
@@ -117,7 +128,7 @@ func _InitGetSymbols( asSymbol, asSymbolListName, asExcludeSymbolList string ) (
 //------------------------------------------------------------
 // Function: _InitGetSymbols
 //------------------------------------------------------------
-func _LoadProcessingMap( asSymbols []string ) ( error ) {
+func _LoadProcessingMap( asSymbols []string, aiNegDays []int ) ( error ) {
   lcResult, err := _QueryOpenClose( asSymbols )
 
   if err != nil {
@@ -148,7 +159,9 @@ func _LoadProcessingMap( asSymbols []string ) ( error ) {
                            High: lcRow.Float( 5 ) }
       lcValues = append( lcValues, lNew )
     } else {
-      _TestValues( lsHoldSym, *giNegDays, lcValues )
+      for _, lND := range aiNegDays {
+        _TestValues( lsHoldSym, lND, lcValues )
+      }
       lsHoldSym = lsSymbol
       lcValues = make( []osql.OCDate, 0 )
     }
