@@ -30,6 +30,7 @@ var (
   gfPctChgParm      *float64 = flag.Float64( "pc", 2, "percent change to check" )
   gfLossPct         *float64 = flag.Float64( "lp", 2.0, "loss percent" )
   giPlaysPerDay     *int = flag.Int( "ppd", 10, "plays per day" )
+  gfBank            *float64 = flag.Float64( "bank", 10000, "starting bank simulation" )
   gfExitPercents    []float64
   gcHitDates        map[string][]_hit = make( map[string][]_hit )
 
@@ -360,9 +361,11 @@ func _EvaluateDatesOpenDownAndDownLP() {
     }
 
     if liHits > 0 {
-      Log.Info( "HIT2T: %s : Hits: %2d  Day Pct: %5.2f",
-                lsDate, liHits, lfTotPct / float64(liHits) )
-      liHits = 0
+      lfDayPct := lfTotPct / float64(liHits)
+      *gfBank += *gfBank * (lfDayPct/100)
+      Log.Info( "HIT2T: %s : Hits: %2d  Day Pct: %6.2f  Bank: %8s",
+                lsDate, liHits, lfDayPct,
+                ou.Commas( "%.0f", *gfBank ) )
       giDaysPlayed++
       gfTotalPct += lfTotPct
     }
