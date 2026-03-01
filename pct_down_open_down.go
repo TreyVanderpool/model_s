@@ -31,6 +31,7 @@ var (
   gfLossPct         *float64 = flag.Float64( "lp", 2.0, "loss percent" )
   giPlaysPerDay     *int = flag.Int( "ppd", 10, "plays per day" )
   gfBank            *float64 = flag.Float64( "bank", 10000, "starting bank simulation" )
+  gfOpenDownPct     *float64 = flag.Float64( "odp", 2, "open down percent" )
   gfExitPercents    []float64
   gcHitDates        map[string][]_hit = make( map[string][]_hit )
 
@@ -45,7 +46,6 @@ type _hit struct {
 
 func main() {
   lsDBName := flag.String( "db", "stocks_test", "database name" )
-  // gsStartingDate = flag.String( "sd", time.Now().Format( ou.YYYY_MM_DD ), "starting date" )
   lsSymbol := flag.String( "s", "", "single symbol to look at" )
   lsSymbolListName := flag.String( "sln", "top_list_20241205", "symbol list name" )
   lsExcludeSymbols := flag.String( "exclude", "model_r_exclude", "exclude symbol list" )
@@ -209,7 +209,9 @@ func _TestValues( asSymbol string, aiNegDays int, acValues []osql.OCDate ) {
   for i := aiNegDays + 1; i < len( acValues ); i++ {
     liDaysNeg = 0
     // Check if the current day opens below the previous day's close
-    if acValues[i].Open < acValues[i-1].Close {
+    lfOpenPct := ou.PctChg( acValues[i-1].Close, acValues[i].Open )
+    // if acValues[i].Open < acValues[i-1].Close && lfOpenPct < -1.0 {
+    if lfOpenPct <= *gfOpenDownPct {
       for j := i - 1; j >= i - aiNegDays; j-- {
         if acValues[j-1].Close > acValues[j].Close {
           lfPct := ou.PctChg( acValues[j-1].Close, acValues[j].Close )
