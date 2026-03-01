@@ -56,6 +56,7 @@ func main() {
 
   if *gfPctChgParm > 0 { *gfPctChgParm *= -1 }
   if *gfLossPct > 0 { *gfLossPct *= -1 }
+  if *gfOpenDownPct > 0 { *gfOpenDownPct *= -1 }
   gfExitPercents = make( []float64, *giPlaysPerDay )
   lsValues := strings.Split( *lsExitPercents, "," )
   liNegDays := make( []int, 0 )
