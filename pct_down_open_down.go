@@ -26,7 +26,6 @@ var (
   DB                *odb.DB
   SQLs              osql.SQLs
   gsStartingDate    *string = flag.String( "sd", time.Now().Format( ou.YYYY_MM_DD ), "starting date" )
-  // giNegDays         *int = flag.Int( "nd", 3, "number of negative days to look at" )
   gfPctChgParm      *float64 = flag.Float64( "pc", 2, "percent change to check" )
   gfLossPct         *float64 = flag.Float64( "lp", 2.0, "loss percent" )
   giPlaysPerDay     *int = flag.Int( "ppd", 10, "plays per day" )
@@ -94,7 +93,9 @@ func main() {
   // _EvaluateDatesOpenDown()
   _EvaluateDatesOpenDownAndDownLP()
 
-  Log.Info( "Total Days Played: %d  Avg Pct: %5.2f", giDaysPlayed, gfTotalPct / float64(giDaysPlayed) )
+  Log.Info( "FINAL: Total Days Played: %d  Avg Pct: %5.2f  Ending Bank: %9s",
+            giDaysPlayed, gfTotalPct / float64(giDaysPlayed),
+            ou.Commas( "%.0f", *gfBank ) )
 }
 
 //------------------------------------------------------------
