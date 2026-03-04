@@ -31,6 +31,7 @@ var (
   giPlaysPerDay     *int = flag.Int( "ppd", 10, "plays per day" )
   gfBank            *float64 = flag.Float64( "bank", 10000, "starting bank simulation" )
   gfOpenDownPct     *float64 = flag.Float64( "odp", 2, "open down percent" )
+  gfBuyDownPct      *float64 = flag.Float64( "bdp", 3, "buy down percent" )
   gfExitPercents    []float64
   gcHitDates        map[string][]_hit = make( map[string][]_hit )
 
@@ -47,7 +48,7 @@ func main() {
   lsDBName := flag.String( "db", "stocks_test", "database name" )
   lsSymbol := flag.String( "s", "", "single symbol to look at" )
   lsSymbolListName := flag.String( "sln", "top_list_20241205", "symbol list name" )
-  lsExcludeSymbols := flag.String( "exclude", "model_r_exclude", "exclude symbol list" )
+  lsExcludeSymbols := flag.String( "exclude", "model_s_exclude", "exclude symbol list" )
   lsLvl := flag.String( "lvl", "info", "log level" )
   lsExitPercents := flag.String( "ep", "2.0", "exit percent")
   lsNegDays := flag.String( "nd", "3", "number of negative days to look at" )
@@ -85,15 +86,21 @@ func main() {
   // Get symbol list to test
   lsSymList, _ := _InitGetSymbols( *lsSymbol, *lsSymbolListName, *lsExcludeSymbols )
 
-  Log.Info( "Starting: Symbol List: %4d", len( lsSymList ) )
+  Log.Info( "Starting: Symbol List: %4d ND:%s LP:%.2f PC:%.2f ODP:%.2f BDP:%.2f",
+            len( lsSymList ),
+            *lsNegDays,
+            *gfLossPct,
+            *gfPctChgParm,
+            *gfOpenDownPct,
+            *gfBuyDownPct )
 
   // Log.Info( "Symbols to process: %d", len( lsSymList ) )
 
   _LoadProcessingMap( lsSymList, liNegDays )
   // _EvaluateDatesOpenDown()
-  _EvaluateDatesOpenDownAndDownLP()
+  _EvaluateDatesOpenDownAndBuyDown()
 
-  Log.Info( "FINAL: Total Days Played: %d  Avg Pct: %5.2f  Ending Bank: %9s",
+  Log.Info( "FINAL: Total Days Played: %4d  Avg Pct: %5.2f  Ending Bank: %9s",
             giDaysPlayed, gfTotalPct / float64(giDaysPlayed),
             ou.Commas( "%.0f", *gfBank ) )
 }
@@ -210,9 +217,12 @@ func _TestValues( asSymbol string, aiNegDays int, acValues []osql.OCDate ) {
 
   for i := aiNegDays + 1; i < len( acValues ); i++ {
     liDaysNeg = 0
+
     // Check if the current day opens below the previous day's close
+    // No need to check the other X number of days close values if the
+    // open below condition is not hit first.
     lfOpenPct := ou.PctChg( acValues[i-1].Close, acValues[i].Open )
-    // if acValues[i].Open < acValues[i-1].Close && lfOpenPct < -1.0 {
+
     if lfOpenPct <= *gfOpenDownPct {
       for j := i - 1; j >= i - aiNegDays; j-- {
         if acValues[j-1].Close > acValues[j].Close {
@@ -313,9 +323,9 @@ func _EvaluateDatesOpenDown() {
 }
 
 //------------------------------------------------------------
-// Function: _EvaluateDatesOpenDownAndDownLP
+// Function: _EvaluateDatesOpenDownAndBuyDown
 //------------------------------------------------------------
-func _EvaluateDatesOpenDownAndDownLP() {
+func _EvaluateDatesOpenDownAndBuyDown() {
   // Log.Info( "Total Date Entries: %d", len( gcHitDates ) )
 
   lcDate, _ := time.Parse( ou.YYYY_MM_DD, *gsStartingDate )
@@ -342,22 +352,22 @@ func _EvaluateDatesOpenDownAndDownLP() {
     // Find the number that hits the condition
     // Using the map it acts like a random selection
     for _, lHit := range lcHitsMap {
-      liLen := len( lHit.Values )
-      lcLast := lHit.Values[liLen-1]
-      lfLowPct := ou.PctChg( lcLast.Open, lcLast.Low )
-      if lfLowPct < *gfLossPct {
+      // liLen := len( lHit.Values )
+      // lcLast := lHit.Values[liLen-1]
+      // lfLowPct := ou.PctChg( lcLast.Open, lcLast.Low )
+      // if lfLowPct < *gfLossPct {
         liHits++
         lcHits = append( lcHits, lcHitsMap[lHit.Symbol] )
         if liHits >= *giPlaysPerDay { break }
-      }
+      // }
     }
 
     for _, lHit := range lcHits {
       liLen := len( lHit.Values )
       lcLast := lHit.Values[liLen-1]
-      lfLowPct := ou.PctChg( lcLast.Open, lcLast.Low )
-      lfBuyValue := lcLast.Open + (lcLast.Open * (*gfLossPct/100))
-      lfLowPct = ou.PctChg( lfBuyValue, lcLast.Low )
+      // lfLowPct := ou.PctChg( lcLast.Open, lcLast.Low )
+      lfBuyValue := lcLast.Open - (lcLast.Open * (*gfBuyDownPct/100))
+      lfLowPct := ou.PctChg( lfBuyValue, lcLast.Low )
       lfClosePct := ou.PctChg( lfBuyValue, lcLast.Close )
       lfExitPct := lfClosePct
       lsExitPct := "c"
@@ -365,7 +375,6 @@ func _EvaluateDatesOpenDownAndDownLP() {
         lfExitPct = gfExitPercents[liHits-1]
         lsExitPct = "l"
       }
-      lfTotPct += lfExitPct
       Log.Info( "HIT2D:  -> %s %-6s  %7.2fo  %7.2fl  %6.2fb  %7.2fc  %6.2fe%s%%",
                 lsDate,
                 lHit.Symbol,
@@ -375,6 +384,7 @@ func _EvaluateDatesOpenDownAndDownLP() {
                 lcLast.Close,
                 lfExitPct,
                 lsExitPct )
+      lfTotPct += lfExitPct
     }
 
     if liHits > 0 {
