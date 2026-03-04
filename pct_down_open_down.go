@@ -367,6 +367,15 @@ func _EvaluateDatesOpenDownAndBuyDown() {
       lcLast := lHit.Values[liLen-1]
       // lfLowPct := ou.PctChg( lcLast.Open, lcLast.Low )
       lfBuyValue := lcLast.Open - (lcLast.Open * (*gfBuyDownPct/100))
+      if lfBuyValue < lcLast.Low {
+        Log.Info( "HIT2x:  -> %s %-6s  %7.2fo  %7.2fl  %6.2fb - Buy below low...",
+                lsDate,
+                lHit.Symbol,
+                lcLast.Open,
+                lcLast.Low,
+                lfBuyValue )
+        continue
+      }
       lfLowPct := ou.PctChg( lfBuyValue, lcLast.Low )
       lfClosePct := ou.PctChg( lfBuyValue, lcLast.Close )
       lfExitPct := lfClosePct
